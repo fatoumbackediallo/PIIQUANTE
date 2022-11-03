@@ -12,17 +12,22 @@ exports.findAllSauces = (req, res, next) => {
 //Créer une Route Get pour ajouter une sauce
 exports.createSauce = (req, res, next) => {
   const sauceObject = JSON.parse(req.body.sauce);
-  delete sauceObject._id;
-  delete sauceObject._userId;
+  //   delete sauceObject._id;
+  delete sauceObject.userId;
   const sauce = new Sauce({
     ...sauceObject,
     userId: req.auth.userId,
     imageUrl: `${req.protocol}://${req.get("host")}/images/${
       req.file.filename
     }`,
+    likes: JSON.stringify(0 - 9),
+    dislikes: JSON.stringify(0 - 9),
+    usersLiked: [],
+    usersDisliked: [],
   });
 
-  Sauce.save()
+  sauce
+    .save()
     .then(() => res.status(201).json({ message: "Sauce enregistrée !" }))
     .catch((error) => res.status(400).json({ error }));
 };
@@ -47,7 +52,7 @@ exports.modifySauce = (req, res, next) => {
       }
     : { ...req.body };
 
-  delete sauceObject._userId;
+  delete sauceObject.userId;
   sauce
     .findOne({ _id: req.params.id })
     .then((sauce) => {
