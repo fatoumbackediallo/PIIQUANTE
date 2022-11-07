@@ -1,4 +1,3 @@
-const sauce = require("../models/sauce");
 const Sauce = require("../models/sauce");
 const fs = require("fs");
 
@@ -20,11 +19,12 @@ exports.createSauce = (req, res, next) => {
     imageUrl: `${req.protocol}://${req.get("host")}/images/${
       req.file.filename
     }`,
-    likes: JSON.stringify(0 - 9),
-    dislikes: JSON.stringify(0 - 9),
+    likes: 0,
+    dislikes: 0,
     usersLiked: [],
     usersDisliked: [],
   });
+  console.log();
 
   sauce
     .save()
@@ -53,8 +53,7 @@ exports.modifySauce = (req, res, next) => {
     : { ...req.body };
 
   delete sauceObject.userId;
-  sauce
-    .findOne({ _id: req.params.id })
+  Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
       if (sauce.userId != req.auth.userId) {
         res.status(401).json({ message: "Non autorisé" });
@@ -74,8 +73,7 @@ exports.modifySauce = (req, res, next) => {
 
 //Supprimer une sauce
 exports.deleteSauce = (req, res, next) => {
-  sauce
-    .findOne({ _id: req.params.id })
+  Sauce.findOne({ _id: req.params.id })
     .then((sauce) => {
       if (sauce.userId != req.auth.userId) {
         res.status(401).json({ message: "Non autorisé" });
@@ -90,5 +88,73 @@ exports.deleteSauce = (req, res, next) => {
     })
     .catch((error) => {
       res.status(500).json({ error });
+    });
+};
+
+//Liker/Disliker une sauce
+exports.appreciateSauce = (req, res, next) => {
+  console.log("hello");
+  const appreciation = req.body.like;
+  const user = req.body.userId;
+  Sauce.findOne({ _id: req.params.id })
+    .then((sauce) => {
+      const isUserLikeExist = sauce.usersLiked.includes(user);
+      const isUserDislikeExist = sauce.usersDisliked.includes(user);
+      if (appreciation == 1 && !isUserLikeExist) {
+        Sauce.updateOne(
+          { _id: req.params.id },
+          {
+            ...sauce,
+            likes: sauce.likes++,
+            usersLiked: sauce.usersLiked.push(user),
+            usersDisliked: isUserDislikeExist
+              ? sauce.usersDisliked.filter((u) => u !== user)
+              : sauce.usersDisliked,
+            dislikes: isUserDislikeExist ? sauce.dislikes-- : sauce.dislikes,
+          }
+        )
+          .then(() => res.status(200).json({ message: "Sauce appréciée" }))
+          .catch((error) => {
+            console.log(error);
+            res.status(401).json({ error });
+          });
+      }
+      if (appreciation == -1 && !isUserDislikeExist) {
+        Sauce.updateOne(
+          { _id: req.params.id },
+          {
+            ...sauce,
+            dislikes: sauce.dislikes++,
+            usersDisliked: sauce.usersDisliked.push(user),
+            usersLiked: isUserLikeExist
+              ? sauce.usersLiked.filter((u) => u !== user)
+              : sauce.usersLiked,
+            likes: isUserLikeExist ? sauce.likes-- : sauce.likes,
+          }
+        )
+          .then(() => res.status(200).json({ message: "Sauce non appréciée" }))
+          .catch((error) => res.status(401).json({ error }));
+      }
+      if (appreciation == 0) {
+        Sauce.updateOne(
+          { _id: req.params.id },
+          {
+            ...sauce,
+            dislikes: isUserDislikeExist ? sauce.dislikes-- : sauce.dislikes,
+            usersDisliked: isUserDislikeExist
+              ? sauce.usersDisliked.filter((u) => u !== user)
+              : sauce.usersDisliked,
+            usersLiked: isUserLikeExist
+              ? sauce.usersLiked.filter((u) => u !== user)
+              : sauce.usersLiked,
+            likes: isUserLikeExist ? sauce.likes-- : sauce.likes,
+          }
+        )
+          .then(() => res.status(200).json({ message: "Appréciation annulée" }))
+          .catch((error) => res.status(401).json({ error }));
+      }
+    })
+    .catch((error) => {
+      res.status(404).json({ error });
     });
 };
